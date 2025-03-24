@@ -24,6 +24,9 @@ def main():
 
     next_page_token = None
 
+    # Kept for progress report only
+    comment_processed = 0
+
     # Can only process 100 comments at a time, so do until no more comments exist:
     while True:
         comment_texts = []
@@ -38,19 +41,22 @@ def main():
 
         # Add the text from every reply comment to the comment_texts list
         for item in response["items"]:
-            comment_texts.append("COMMENT:\t" + item['snippet']['topLevelComment']['snippet']['textDisplay'] + f"\t\tAUTHOR OF COMMENT: {item['snippet']['topLevelComment']['snippet']['authorDisplayName']}" + f"\nLINK TO COMMENT: https://www.youtube.com/watch?v={VID_ID}&lc={item['snippet']['topLevelComment']['id']}")
-
-        print(f"processed {len(response['items'])} comments")
-
-        for text in comment_texts:
-            # Test for if the secret password is found
+            comment_processed += 1
+            text = "COMMENT:\t" + item['snippet']['topLevelComment']['snippet']['textDisplay'] + f"\t\tAUTHOR OF COMMENT: {item['snippet']['topLevelComment']['snippet']['authorDisplayName']}" + f"\nLINK TO COMMENT: https://www.youtube.com/watch?v={VID_ID}&lc={item['snippet']['topLevelComment']['id']}"
+            
             if SECRET_PASSWORD.lower() in text.lower():
                 found = True
+                print(f"processed {comment_processed} comments")
                 print("\nFOUND SECRET PASSWORD\n")
                 with open("winner_info.txt", "w") as f:
                     f.write(text)
                 make_private(VID_ID)
                 break
+
+        print(f"processed {comment_processed} comments")
+
+        if found:
+            break
 
         if not "nextPageToken" in response:
             break
