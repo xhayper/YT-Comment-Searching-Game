@@ -4,12 +4,12 @@ import google_auth_oauthlib.flow
 import googleapiclient.discovery
 import googleapiclient.errors
 
+
 def main():
     api_service_name = "youtube"
     api_version = "v3"
     winner_info = "winner_info.txt"
     found = False
-    comment_texts = []
 
     # PUT YOUR API KEY HERE
     DEVELOPER_KEY = "YOUR API KEY"
@@ -22,48 +22,46 @@ def main():
     youtube = googleapiclient.discovery.build(
         api_service_name, api_version, developerKey = DEVELOPER_KEY)
 
-    request = youtube.commentThreads().list(
-        part="snippet",
-        videoId=VID_ID,
-        maxResults=100
-    )
-    response = request.execute()
-    print("processed first 100 comments")
+    next_page_token = None
 
     # Can only process 100 comments at a time, so do until no more comments exist:
-    while 'nextPageToken' in response:
+    while True:
+        comment_texts = []
+
+        request = youtube.commentThreads().list(
+            part="snippet",
+            videoId=VID_ID,
+            maxResults=100,
+            pageToken=next_page_token
+        )
+        response = request.execute()
+
         # Add the text from every reply comment to the comment_texts list
-        for item in response['items']:
+        for item in response["items"]:
             comment_texts.append("COMMENT:\t" + item['snippet']['topLevelComment']['snippet']['textDisplay'] + f"\t\tAUTHOR OF COMMENT: {item['snippet']['topLevelComment']['snippet']['authorDisplayName']}" + f"\nLINK TO COMMENT: https://www.youtube.com/watch?v={VID_ID}&lc={item['snippet']['topLevelComment']['id']}")
 
-        new_request = youtube.commentThreads().list(
-        part="snippet",
-        videoId=VID_ID,
-        maxResults=100,
-        pageToken=response['nextPageToken']
-        )
-        # This is a new API call for every 100 comments
-        response = new_request.execute()
-        print("processed 100 comments")
+        print(f"processed {len(response['items'])} comments")
 
-    # Add the text from every reply comment to the comment_texts list
-    for item in response['items']:
-        comment_texts.append("COMMENT:\t" + item['snippet']['topLevelComment']['snippet']['textDisplay'] + f"\t\tAUTHOR OF COMMENT: {item['snippet']['topLevelComment']['snippet']['authorDisplayName']}" + f"\nLINK TO COMMENT: https://www.youtube.com/watch?v={VID_ID}&lc={item['snippet']['topLevelComment']['id']}")
+        for text in comment_texts:
+            # Test for if the secret password is found
+            if SECRET_PASSWORD.lower() in text.lower():
+                found = True
+                print("\nFOUND SECRET PASSWORD\n")
+                with open("winner_info.txt", "w") as f:
+                    f.write(text)
+                make_private(VID_ID)
+                break
 
-    for text in comment_texts:
-        # Test for if the secret password is found
-        if SECRET_PASSWORD.lower() in text.lower():
-            found = True
-            print("\nFOUND SECRET PASSWORD\n")
-            with open("winner_info.txt", "w") as f:
-                f.write(text)
-            make_private(VID_ID)
+        if not "nextPageToken" in response:
             break
-    
+
+        next_page_token = response["nextPageToken"]
+
     if not found:
         print("\nSecret password was not found.\n")
 
-# Make the video private if the secret password is found    
+
+# Make the video private if the secret password is found
 def make_private(id):
     scopes = ["https://www.googleapis.com/auth/youtube"]
 
@@ -73,28 +71,23 @@ def make_private(id):
     api_service_name = "youtube"
     api_version = "v3"
     client_secrets_file = "client_secret.json"
-    
+
     # Get credentials and create an API client
     flow = google_auth_oauthlib.flow.InstalledAppFlow.from_client_secrets_file(
-        client_secrets_file, scopes)
+        client_secrets_file, scopes
+    )
     credentials = flow.run_local_server(port=0)
     youtube = googleapiclient.discovery.build(
-        api_service_name, api_version, credentials=credentials)
+        api_service_name, api_version, credentials=credentials
+    )
 
     request = youtube.videos().update(
-        part="status",
-        body={
-        "id": id,
-        "status": {
-            "privacyStatus": "private"
-        }
-        }
+        part="status", body={"id": id, "status": {"privacyStatus": "private"}}
     )
 
     response = request.execute()
 
     print(response)
-    
 
 
 if __name__ == "__main__":
